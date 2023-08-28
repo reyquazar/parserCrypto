@@ -125,8 +125,8 @@ def kraken():
 
 
 def main():
-    # coinbase()
-    # kucoin()
+    coinbase()
+    kucoin()
     kraken()
 
 
