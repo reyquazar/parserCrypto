@@ -78,23 +78,22 @@ def kucoin():
     # создаем на основе словаря json файл
     with open("JSON/cryptoDictKUCOIN.json", "w") as file:
         json.dump(cryptoDict, file, indent=4, ensure_ascii=False)
-    print('Готов')
-    print(cryptoDict)
 
 
-def kraken():
-    # url = "https://www.kraken.com/ru-ru/prices"
-    #
-    # headers = {
-    #     "Accept": "*/*",
-    #     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 OPR/101.0.0.0 (Edition Yx GX 03)"
-    # }
-    #
-    # req = requests.get(url, headers=headers)
-    # src = req.text
 
-    with open("index.html", encoding="utf-8") as file:
-        src = file.read()
+def myfin():
+    url = "https://myfin.by/exchange"
+
+    headers = {
+        "Accept": "*/*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 OPR/101.0.0.0 (Edition Yx GX 03)"
+    }
+
+    req = requests.get(url, headers=headers)
+    src = req.text
+
+    # with open("index.html", encoding="utf-8") as file:
+    #     src = file.read()
 
     soup = bs(src, "lxml")
 
@@ -104,30 +103,33 @@ def kraken():
     # парсим по определенному классу
     all_options = soup.find_all('td')
 
-    # all_names = soup.find_all(class_="lrtcss-1jzqi98 ej80wqq5")
+    all_names = soup.find_all(class_="s-bold")
 
     options_array = []  # добавляем в массив цен
     for option in all_options:
         option_text = option.text
-        if option_text.startswith("R") and not option_text.endswith(("B", "T", "M")):
-            option_text = "".join(char for char in option_text if char.isnumeric() or char == ".")
-            # options_array.append(float(option_text))
-            print(option_text)
-    # option_text = option.text.replace(' $', '')
-    # option_text = "".join(char for char in option_text if char.isnumeric() or char == ".")
-    # options_array.append(float(option_text))
+        for i in option_text:
+            if i == '+' or i == '-':
+                option_text = option_text.split()[0]
+                options_array.append(float(option_text))
 
     # print(options_array)
-    # name_array = []  # добавляем в массив все названия криптовалют
-    # for name in all_names:
-    #     name_text = name.text
-    #     name_array.append(name_text)
+    name_array = []  # добавляем в массив все названия криптовалют
+    for name in all_names:
+        name_text = name.text
+        name_array.append(name_text)
+
+    cryptoDict = dict(zip(name_array, options_array))  # соединяем в словарь
+    # создаем на основе словаря json файл
+    with open("JSON/cryptoDictMYFIN.json", "w") as file:
+        json.dump(cryptoDict, file, indent=4, ensure_ascii=False)
+
 
 
 def main():
-    coinbase()
+    # coinbase()
     kucoin()
-    kraken()
+    myfin()
 
 
 if __name__ == "__main__":
