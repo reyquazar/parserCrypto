@@ -51,13 +51,7 @@ def kucoin():
     req = requests.get(url, headers=headers)
     src = req.text
 
-    # with open("index.html", encoding="utf-8") as file:
-    #     src = file.read()
-
     soup = bs(src, "lxml")
-
-    # with open("index.html", "w", encoding="utf-8") as file:
-    #     file.write(src)
 
     # парсим по определенному классу
     all_options = soup.find_all(class_='lrtcss-yea6ot ej80wqq4')
@@ -80,8 +74,7 @@ def kucoin():
         json.dump(cryptoDict, file, indent=4, ensure_ascii=False)
 
 
-
-def myfin():
+def myfin_btc():
     url = "https://myfin.by/exchange"
 
     headers = {
@@ -121,15 +114,46 @@ def myfin():
 
     cryptoDict = dict(zip(name_array, options_array))  # соединяем в словарь
     # создаем на основе словаря json файл
+    with open("JSON/cryptoDictMYFINBTC.json", "w") as file:
+        json.dump(cryptoDict, file, indent=4, ensure_ascii=False)
+
+
+def myfin():
+    url = "https://myfin.by/crypto-rates"
+
+    headers = {
+        "Accept": "*/*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 OPR/101.0.0.0 (Edition Yx GX 03)"
+    }
+
+    req = requests.get(url, headers=headers)
+    src = req.text
+
+    soup = bs(src, "lxml")
+
+    cryptoDict = dict()
+
+    # парсим по определенному классу
+    all_options = soup.find_all('tr')
+    for row in all_options:
+        td_elements = row.find_all("td")
+        if len(td_elements) >= 2:
+            first_td_text = td_elements[0].get_text(strip=True)
+            second_td_text = td_elements[1].get_text(strip=True)
+            second_td_text = second_td_text.split('$').pop(0)
+
+            cryptoDict[first_td_text] = second_td_text
+
+    # создаем на основе словаря json файл
     with open("JSON/cryptoDictMYFIN.json", "w") as file:
         json.dump(cryptoDict, file, indent=4, ensure_ascii=False)
 
 
-
 def main():
-    # coinbase()
+    coinbase()
     kucoin()
     myfin()
+    myfin_btc()  # only btc
 
 
 if __name__ == "__main__":
