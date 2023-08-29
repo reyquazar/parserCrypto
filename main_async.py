@@ -1,23 +1,26 @@
 import json
 import time
-
+import asyncio
+import aiohttp
 import requests
 
 from bs4 import BeautifulSoup as bs
 
 
-def make_request(url):
+async def make_request(url):
     headers = {
         "Accept": "*/*",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 OPR/101.0.0.0 (Edition Yx GX 03)"
     }
 
-    req = requests.get(url, headers=headers)
-    return bs(req.text, 'lxml')
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as resp:
+            text = await resp.text()
+            return bs(text, 'lxml')
 
 
-def coinbase():
-    soup = make_request("https://www.coinbase.com/explore")
+async def coinbase():
+    soup = await make_request("https://www.coinbase.com/explore")
 
     # парсим по определенному классу
     all_options = soup.find_all(
@@ -43,8 +46,8 @@ def coinbase():
         json.dump(cryptoDict, file, indent=4, ensure_ascii=False)
 
 
-def kucoin():
-    soup = make_request("https://www.kucoin.com/ru/markets")
+async def kucoin():
+    soup = await make_request("https://www.kucoin.com/ru/markets")
 
     # парсим по определенному классу
     all_options = soup.find_all(class_='lrtcss-yea6ot ej80wqq4')
@@ -67,8 +70,8 @@ def kucoin():
         json.dump(cryptoDict, file, indent=4, ensure_ascii=False)
 
 
-def myfin_btc():
-    soup = make_request("https://myfin.by/exchange")
+async def myfin_btc():
+    soup = await make_request("https://myfin.by/exchange")
 
     # парсим по определенному классу
     all_options = soup.find_all('td')
@@ -95,8 +98,8 @@ def myfin_btc():
         json.dump(cryptoDict, file, indent=4, ensure_ascii=False)
 
 
-def myfin():
-    soup = make_request("https://myfin.by/crypto-rates")
+async def myfin():
+    soup = await make_request("https://myfin.by/crypto-rates")
 
     cryptoDict = dict()
 
@@ -117,10 +120,10 @@ def myfin():
 
 
 def main():
-    coinbase()
-    kucoin()
-    myfin()
-    myfin_btc()  # only btc
+    asyncio.run(coinbase())
+    asyncio.run(kucoin())
+    asyncio.run(myfin())
+    asyncio.run(myfin_btc())  # only btc
 
 
 if __name__ == "__main__":
