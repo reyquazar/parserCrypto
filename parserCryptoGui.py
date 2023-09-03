@@ -30,8 +30,11 @@ class ParserCryptoGui(QMainWindow):
     """Класс-обертка для основного окна приложения"""
     path = os.getcwd().replace('\\', '\\\\') + '\\\\'  # директория, из которой запускается программа
     pathImg = path.replace("\\", '/')
-    selectedQuotationCoin = 'XRP'
-    selectedBasicCoin = 'USDT'
+    selectedQuotationCoin = 'Bitcoin'
+    selectedBasicCoin = 'RUB'
+    circularRefreshOn = False
+    refreshTime = 0
+    startParsButtonClicked = False
 
     def __init__(self):
         super(ParserCryptoGui, self).__init__()
@@ -48,13 +51,28 @@ class ParserCryptoGui(QMainWindow):
     def add_guiFunctions(self):
         self.ui.pushButton_loadSiteData.clicked.connect(self.startParsingThread)
         self.ui.pushButton_enableCoinChoice.clicked.connect(self.enableCoinChoice)
+        self.ui.checkBox_circularRefresh.clicked.connect(self.circularRefreshSwitcher)
 
     def enableCoinChoice(self):
         self.selectedQuotationCoin = self.ui.comboBox_quotationCoin.currentText()
         self.selectedBasicCoin = self.ui.comboBox_basicCoin.currentText()
 
+    def circularRefreshSwitcher(self):
+        if self.ui.checkBox_circularRefresh.isChecked():
+            self.ui.spinBox_refreshTime.setDisabled(False)
+            self.ui.pushButton_EnableRefreshTime.setDisabled(False)
+            ParserCryptoGui.circularRefreshOn = True
+            ParserCryptoGui.refreshTime = self.ui.spinBox_refreshTime.value()
+            if self.startParsButtonClicked:
+                self.startParsingThread()
+        else:
+            self.ui.spinBox_refreshTime.setDisabled(True)
+            self.ui.pushButton_EnableRefreshTime.setDisabled(True)
+            ParserCryptoGui.circularRefreshOn = False
+
     def startParsingThread(self):
         try:
+            self.startParsButtonClicked = True
             self.parsThread = ParsThread()
             self.computeThread = QThread()
             self.parsThread.moveToThread(self.computeThread)
@@ -75,15 +93,19 @@ class ParserCryptoGui(QMainWindow):
             self.ui.tableWidget_mainResultWindow.setRowCount(13)
             self.ui.tableWidget_mainResultWindow.setColumnCount(3)
 
-            with open("JSON/cryptoDictCOINBASE.json", "r") as file:
-                cryptoMarkets.append('COINBASE')
-                cryptoMarketsData.append(json.loads(file.read()))
-            with open("JSON/cryptoDictKUCOIN.json", "r") as file:
-                cryptoMarkets.append('KUCOIN')
-                cryptoMarketsData.append(json.loads(file.read()))
-            with open("JSON/cryptoDictMYFIN.json", "r") as file:
-                cryptoMarkets.append('MYFIN')
-                cryptoMarketsData.append(json.loads(file.read()))
+            if self.ui.treeWidget_siteList.topLevelItem(0).checkState(0) == 2:
+                with open("JSON/cryptoDictMYFIN.json", "r") as file:
+                    cryptoMarkets.append('MYFIN')
+                    cryptoMarketsData.append(json.loads(file.read()))
+            if self.ui.treeWidget_siteList.topLevelItem(1).checkState(0) == 2:
+                with open("JSON/cryptoDictKUCOIN.json", "r") as file:
+                    cryptoMarkets.append('KUCOIN')
+                    cryptoMarketsData.append(json.loads(file.read()))
+            if self.ui.treeWidget_siteList.topLevelItem(2).checkState(0) == 2:
+                with open("JSON/cryptoDictCOINBASE.json", "r") as file:
+                    cryptoMarkets.append('COINBASE')
+                    cryptoMarketsData.append(json.loads(file.read()))
+
             for cryptoMarket, cryptoMarketData in zip(cryptoMarkets, cryptoMarketsData):
                 self.fillResultWindow(unfilledRowNumber, cryptoMarket, cryptoMarketData)
                 unfilledRowNumber += 1
@@ -101,16 +123,18 @@ class ParserCryptoGui(QMainWindow):
         item.setText(f'{self.selectedQuotationCoin}/{self.selectedBasicCoin}')
         self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 1, item)
 
-        if self.selectedQuotationCoin in cryptoMarketData:
-            item = QtWidgets.QTableWidgetItem()
-            item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
-            item.setText(str(cryptoMarketData.get(self.selectedQuotationCoin)))
-            self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 2, item)
-        else:
-            item = QtWidgets.QTableWidgetItem()
-            item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
-            item.setText('Котировка отсутствует')
-            self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 2, item)
+        for key in cryptoMarketData:
+            if self.selectedQuotationCoin.lower() in key.lower():
+                item = QtWidgets.QTableWidgetItem()
+                item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
+                item.setText(str(cryptoMarketData.get(key)))
+                self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 2, item)
+                return
+            else:
+                item = QtWidgets.QTableWidgetItem()
+                item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
+                item.setText('Котировка отсутствует')
+                self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 2, item)
 
 class ParsThread(QObject):
     """Класс получения данных с сайтов криптоплощадок в отдельном потоке"""
@@ -121,10 +145,14 @@ class ParsThread(QObject):
 
     def start(self):
         try:
-            main()
+            while True:
+                main()
+                self.finishSignal.emit()
+                if not ParserCryptoGui.circularRefreshOn:
+                    break
+                QThread.sleep(ParserCryptoGui.refreshTime)
         except Exception as ex:
             logger.error(ex)
-        self.finishSignal.emit()
 
 
 if __name__ == "__main__":
