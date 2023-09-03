@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="Crypto">
+    <file>SiteTreeBackground.png</file>
+    <file>SettingsFone.bmp</file>
+  </qresource>
+</RCC>
