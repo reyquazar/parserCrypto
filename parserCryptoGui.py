@@ -7,7 +7,7 @@ from main_async import main
 import os
 import sys
 import logging
-import json
+import re
 
 def init_logger(name):
     logger = logging.getLogger(name)
@@ -35,6 +35,7 @@ class ParserCryptoGui(QMainWindow):
     circularRefreshOn = False
     refreshTime = 0
     startParsButtonClicked = False
+    unfilledRowNumber = 0
 
     def __init__(self):
         super(ParserCryptoGui, self).__init__()
@@ -49,9 +50,13 @@ class ParserCryptoGui(QMainWindow):
         self.add_guiFunctions()
 
     def add_guiFunctions(self):
-        self.ui.pushButton_loadSiteData.clicked.connect(self.startParsingThread)
         self.ui.pushButton_enableCoinChoice.clicked.connect(self.enableCoinChoice)
         self.ui.checkBox_circularRefresh.clicked.connect(self.circularRefreshSwitcher)
+        self.ui.checkBox_allCoinsRender.clicked.connect(self.allCoinsRenderSwitcher)
+        self.ui.pushButton_loadSiteData.clicked.connect(self.startParsingThread)
+        self.ui.pushButton_coinSearch.clicked.connect(self.startCoinSearch)
+        self.ui.pushButton_addNewCoin.clicked.connect(self.addNewCoin)
+        self.ui.pushButton_deleteCoin.clicked.connect(self.deleteCoin)
 
     def enableCoinChoice(self):
         self.selectedQuotationCoin = self.ui.comboBox_quotationCoin.currentText()
@@ -59,6 +64,7 @@ class ParserCryptoGui(QMainWindow):
 
     def circularRefreshSwitcher(self):
         if self.ui.checkBox_circularRefresh.isChecked():
+            self.ui.label_refreshTime.setDisabled(False)
             self.ui.spinBox_refreshTime.setDisabled(False)
             self.ui.pushButton_EnableRefreshTime.setDisabled(False)
             ParserCryptoGui.circularRefreshOn = True
@@ -66,9 +72,24 @@ class ParserCryptoGui(QMainWindow):
             if self.startParsButtonClicked:
                 self.startParsingThread()
         else:
+            self.ui.label_refreshTime.setDisabled(True)
             self.ui.spinBox_refreshTime.setDisabled(True)
             self.ui.pushButton_EnableRefreshTime.setDisabled(True)
             ParserCryptoGui.circularRefreshOn = False
+
+    def allCoinsRenderSwitcher(self):
+        if self.ui.checkBox_allCoinsRender.isChecked():
+            self.ui.label_coinSearch.setDisabled(True)
+            self.ui.lineEdit_coinSearch.setDisabled(True)
+            self.ui.pushButton_coinSearch.setDisabled(True)
+            self.ui.comboBox_quotationCoin.setDisabled(True)
+            self.ui.label_quotationCoin.setDisabled(True)
+        else:
+            self.ui.label_coinSearch.setDisabled(False)
+            self.ui.lineEdit_coinSearch.setDisabled(False)
+            self.ui.pushButton_coinSearch.setDisabled(False)
+            self.ui.comboBox_quotationCoin.setDisabled(False)
+            self.ui.label_quotationCoin.setDisabled(False)
 
     def startParsingThread(self):
         try:
@@ -87,11 +108,11 @@ class ParserCryptoGui(QMainWindow):
         try:
             cryptoMarkets = []
             cryptoMarketsData = []
-            unfilledRowNumber = 0
+            rowsCount = 0
+            self.unfilledRowNumber = 0
 
             self.ui.tableWidget_mainResultWindow.clearContents()
             self.ui.tableWidget_mainResultWindow.setRowCount(13)
-            self.ui.tableWidget_mainResultWindow.setColumnCount(3)
 
             if self.ui.treeWidget_siteList.topLevelItem(0).checkState(0) == 2:
                 with open("JSON/cryptoDictMYFIN.json", "r") as file:
@@ -106,35 +127,77 @@ class ParserCryptoGui(QMainWindow):
                     cryptoMarkets.append('COINBASE')
                     cryptoMarketsData.append(json.loads(file.read()))
 
+            if self.ui.checkBox_allCoinsRender.isChecked():
+                for cryptoMarketData in cryptoMarketsData:
+                    rowsCount += len(cryptoMarketData)
+                self.ui.tableWidget_mainResultWindow.setRowCount(rowsCount)
+
             for cryptoMarket, cryptoMarketData in zip(cryptoMarkets, cryptoMarketsData):
-                self.fillResultWindow(unfilledRowNumber, cryptoMarket, cryptoMarketData)
-                unfilledRowNumber += 1
+                self.fillResultWindow(cryptoMarket, cryptoMarketData)
         except Exception as ex:
             logger.error(ex)
 
-    def fillResultWindow(self, unfilledRowNumber, cryptoMarket, cryptoMarketData):
-        item = QtWidgets.QTableWidgetItem()
-        item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
-        item.setText(cryptoMarket)
-        self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 0, item)
+    def fillResultWindow(self, cryptoMarket, cryptoMarketData):
 
-        item = QtWidgets.QTableWidgetItem()
-        item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
-        item.setText(f'{self.selectedQuotationCoin}/{self.selectedBasicCoin}')
-        self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 1, item)
+        def addTableItem(text):
+            item = QtWidgets.QTableWidgetItem()
+            item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
+            item.setText(text)
+            return item
+        item = addTableItem
 
-        for key in cryptoMarketData:
-            if self.selectedQuotationCoin.lower() in key.lower():
-                item = QtWidgets.QTableWidgetItem()
-                item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
-                item.setText(str(cryptoMarketData.get(key)))
-                self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 2, item)
-                return
-            else:
-                item = QtWidgets.QTableWidgetItem()
-                item.setTextAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter)
-                item.setText('Котировка отсутствует')
-                self.ui.tableWidget_mainResultWindow.setItem(unfilledRowNumber, 2, item)
+        if not self.ui.checkBox_allCoinsRender.isChecked():  # рендеринг котировок одной выбранной криптомонеты
+            self.ui.tableWidget_mainResultWindow.setItem(self.unfilledRowNumber, 0, item(cryptoMarket))
+            self.ui.tableWidget_mainResultWindow.setItem(self.unfilledRowNumber, 1, item(
+                f'{self.selectedQuotationCoin}/{self.selectedBasicCoin}'))
+            for key in cryptoMarketData:
+                if self.selectedQuotationCoin.lower() in key.lower():
+                    self.ui.tableWidget_mainResultWindow.setItem(self.unfilledRowNumber, 2, item(
+                        str(cryptoMarketData.get(key))))
+                    self.unfilledRowNumber += 1
+                    return
+            self.ui.tableWidget_mainResultWindow.setItem(self.unfilledRowNumber, 2, item('Котировка отсутствует'))
+            self.unfilledRowNumber += 1
+        else:  # рендеринг котировок всех криптомонет
+            for key in cryptoMarketData:
+                self.ui.tableWidget_mainResultWindow.setItem(self.unfilledRowNumber, 0, item(cryptoMarket))
+                self.ui.tableWidget_mainResultWindow.setItem(self.unfilledRowNumber, 1, item(
+                    f'{key}/{self.selectedBasicCoin}'))
+                self.ui.tableWidget_mainResultWindow.setItem(self.unfilledRowNumber, 2, item(
+                    str(cryptoMarketData.get(key))))
+                self.unfilledRowNumber += 1
+
+    def startCoinSearch(self):
+        enteredCoinName = self.ui.lineEdit_coinSearch.text()
+        try:
+            for row in range(self.ui.comboBox_quotationCoin.count()):
+                cboxCoinName = self.ui.comboBox_quotationCoin.itemText(row).lower().replace(' ', '').replace('.', '')
+                if enteredCoinName.lower().replace(' ', '').replace('.', '') in cboxCoinName or \
+                        cboxCoinName in enteredCoinName.lower().replace(' ', '').replace('.', ''):
+                    self.ui.comboBox_quotationCoin.setCurrentIndex(row)
+                    self.selectedQuotationCoin = self.ui.comboBox_quotationCoin.currentText()
+                    return
+            self.ui.comboBox_quotationCoin.setCurrentText(enteredCoinName)
+        except Exception as ex:
+            logger.error(ex)
+
+    def addNewCoin(self):
+        try:
+            j = 0
+            for symbol in self.ui.lineEdit_coinSearch.text():
+                j += 1
+                if (symbol != '') and (symbol != ' '):
+                    self.ui.comboBox_quotationCoin.addItem(self.ui.lineEdit_coinSearch.text()[j:])
+                    self.ui.comboBox_quotationCoin.setCurrentIndex(self.ui.comboBox_quotationCoin.count()-1)
+                    return
+            self.ui.lineEdit_coinSearch.clear()
+        except Exception as ex:
+            logger.error(ex)
+
+    def deleteCoin(self):
+        self.model = self.ui.comboBox_quotationCoin.model()
+        self.model.removeRow(self.ui.comboBox_quotationCoin.currentIndex())
+        self.ui.comboBox_quotationCoin.setCurrentIndex(0)
 
 class ParsThread(QObject):
     """Класс получения данных с сайтов криптоплощадок в отдельном потоке"""
