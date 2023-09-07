@@ -7,7 +7,8 @@ from main_async import main
 import os
 import sys
 import logging
-import re
+import json
+
 
 def init_logger(name):
     logger = logging.getLogger(name)
@@ -84,12 +85,16 @@ class ParserCryptoGui(QMainWindow):
             self.ui.pushButton_coinSearch.setDisabled(True)
             self.ui.comboBox_quotationCoin.setDisabled(True)
             self.ui.label_quotationCoin.setDisabled(True)
+            self.ui.pushButton_addNewCoin.setDisabled(True)
+            self.ui.pushButton_deleteCoin.setDisabled(True)
         else:
             self.ui.label_coinSearch.setDisabled(False)
             self.ui.lineEdit_coinSearch.setDisabled(False)
             self.ui.pushButton_coinSearch.setDisabled(False)
             self.ui.comboBox_quotationCoin.setDisabled(False)
             self.ui.label_quotationCoin.setDisabled(False)
+            self.ui.pushButton_addNewCoin.setDisabled(False)
+            self.ui.pushButton_deleteCoin.setDisabled(False)
 
     def startParsingThread(self):
         try:
