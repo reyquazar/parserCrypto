@@ -190,11 +190,11 @@ class ParserCryptoGui(QMainWindow):
         try:
             j = 0
             for symbol in self.ui.lineEdit_coinSearch.text():
-                j += 1
                 if (symbol != '') and (symbol != ' '):
                     self.ui.comboBox_quotationCoin.addItem(self.ui.lineEdit_coinSearch.text()[j:])
                     self.ui.comboBox_quotationCoin.setCurrentIndex(self.ui.comboBox_quotationCoin.count()-1)
                     return
+                j += 1
             self.ui.lineEdit_coinSearch.clear()
         except Exception as ex:
             logger.error(ex)
